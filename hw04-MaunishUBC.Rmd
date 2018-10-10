@@ -1,0 +1,137 @@
+---
+title: "hw04-MaunishUBC"
+output: github_document
+always_allow_html: yes
+---
+
+### Homework 04: Tidy data and joins ###
+
+Install packages for analysis
+```{r warning=FALSE}
+library(gapminder)
+head(gapminder)
+library(tidyverse)
+library(kableExtra)
+```
+
+
+### Data Reshaping: Activity#2 ### 
+
+
+#### Break the dataset so that it has information for 3 countries: Canada, India and Rwanda ####
+
+```{r}
+life_exp_countries <- gapminder %>% 
+  filter(country %in% c("Canada", "India", "Rwanda")) %>% 
+  select(country, year, lifeExp)
+life_exp_countries
+```
+
+
+#### Let's reshape this such that each row is a year and each column is a country ####
+
+```{r}
+life_exp_countries_untidy <- spread(life_exp_countries, key = "country", value = lifeExp)
+life_exp_countries_untidy %>% kable(row.names = TRUE, align = 'c') %>% 
+  kable_styling()
+```
+
+
+#### Generate scatter plots of one country against another ####
+
+```{r}
+life_exp_countries_untidy %>% ggplot(aes(India, Canada)) +
+  geom_point() + 
+  geom_path(arrow = arrow())
+```
+
+```{r}
+life_exp_countries_untidy %>% ggplot(aes(Rwanda, Canada)) +
+  geom_point() + 
+  geom_path(arrow = arrow())
+```
+```{r}
+life_exp_countries_untidy %>% ggplot(aes(Rwanda, India)) +
+  geom_point() + 
+  geom_path(arrow = arrow())
+```
+
+
+### Join Prompts: Activity 1 ###
+
+```{r}
+head(gapminder) 
+```
+
+```{r warning=FALSE}
+capital_info <- read_csv("http://techslides.com/demos/country-capitals.csv")
+capital_info
+```
+
+To make the capital_info dataset comparable to gapminder rename *CountryName* as **country** and *CapitalName* as **capital**
+
+```{r}
+capital_info_tidy <- capital_info %>% rename(country = CountryName, capital = CapitalName, capital_latitude = CapitalLatitude) %>% 
+  select(country, capital, capital_latitude)
+
+capital_info_tidy %>% kable(row.names = TRUE) %>% 
+  kable_styling()
+
+```
+
+
+Based on the capital's latitude a country will be assigned to the north or south hemisphere. If hemisphere = 1  then it is North Hemisphere otherwise country is in south hemisphere
+
+```{r}
+
+capital_info_hemisphere <- capital_info_tidy %>% 
+  mutate(hemisphere = if_else(capital_latitude > 0,1,0))
+capital_info_hemisphere %>% kable(row.names = TRUE) %>% 
+  kable_styling()
+```
+
+#### Let's combine the gapminder and the capital_info_hemisphere datasets using *inner join* first
+```{r}
+gap_minder_with_capital_inner_join <- inner_join(gapminder, capital_info_hemisphere, by = "country")
+gap_minder_with_capital_inner_join
+```
+
+Note that this matrix has 1584 rows whereas gapminder has 1694 rows, I suspect that's due to difference in the country names in the two datasets
+
+```{r}
+unique(gap_minder_with_capital_inner_join$country)
+unique(gapminder$country)
+unique(capital_info_hemisphere$country)
+```
+
+So, these datasets are indeed quite different with respect to the country info they carry. The capital_info dataset seems to be more exhaustive than the gapminder dataset. 
+
+Let's look at the differnces better using *anti_join*
+```{r}
+anti_join(capital_info_hemisphere, gapminder, by = "country")
+```
+
+As gapminder is our primary focus let's see how does it look with the added information from the capital_info dataset, for this we will use *left_join*
+
+```{r}
+left_join(gapminder, capital_info_hemisphere, by = "country")
+```
+
+For all the data combined into a single dataset we will use *full join* 
+```{r}
+gapminder_metadata <- full_join(gapminder, capital_info_hemisphere, by = "country")
+gapminder_metadata
+```
+
+So, what countries are unique to the capital_info dataset?
+```{r}
+subset(gapminder_metadata, is.na(year)) %>% 
+  kable(row.names = TRUE) %>% 
+  kable_styling()
+```
+
+What countries are unique to the gapminder dataset? 
+```{r}
+unique(subset(gapminder_metadata, is.na(capital))$country)
+```
+
